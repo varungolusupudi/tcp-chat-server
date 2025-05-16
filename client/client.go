@@ -8,8 +8,15 @@ import (
 	"os"
 )
 
+// Steps for client
+// Step1: Log that the client starter
+// Step2: Dial to the port that the server is listening on
+// Step3: Error handling if dialing failed
+// Step4: Keep sending messages to the server and printing the responses
+
 func main() {
-	fmt.Println("Client Starting")
+	fmt.Println("Client Started")
+
 	conn, err := net.Dial("tcp", ":8080")
 	if err != nil {
 		log.Fatal(err)
@@ -17,48 +24,52 @@ func main() {
 
 	defer conn.Close()
 
-	// Enter username
-
 	reader := bufio.NewReader(conn)
-	resp, err := reader.ReadString('\n')
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(resp)
-	scanner1 := bufio.NewScanner(os.Stdin)
-	if scanner1.Scan() {
-		msg := scanner1.Text() + "\n"
+	res, _ := reader.ReadString('\n')
+	fmt.Println(res)
+
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		msg := scanner.Text() + "\n"
 		_, err := conn.Write([]byte(msg))
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	// Listen to server messages
 	go func() {
-		reader := bufio.NewReader(conn)
 		for {
-			msg, err := reader.ReadString('\n')
+			response, err := reader.ReadString('\n')
 			if err != nil {
-				log.Println("Disconnected from Server")
-				return
+				log.Println("Disconnected from server:", err)
+				os.Exit(0)
 			}
-			fmt.Println(msg)
 
+			fmt.Println(response)
 		}
 	}()
 
-	// Send messages to server
 	fmt.Println("Enter your message: \n")
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		if scanner.Scan() {
-			msg := scanner.Text() + "\n"
-			_, err := conn.Write([]byte(msg))
-			if err != nil {
-				log.Println("Error sending the message", err)
-				break
+	for scanner.Scan() {
+		text := scanner.Text()
+		if len(text) > 0 && text[0] == '/' {
+			switch text {
+			case "/quit":
+				fmt.Println("Goodbye!")
+				conn.Close()
+				os.Exit(0)
+			case "/help":
+				fmt.Println("Available commands: /quit, /help, /users")
+			default:
+				fmt.Println("Invalid command")
 			}
+			continue
+		}
+
+		_, err := conn.Write([]byte(text + "\n"))
+		if err != nil {
+			log.Println("Error writing to server", err)
+			break
 		}
 
 	}
